@@ -12,6 +12,16 @@ import Parse
 private let reuseIdentifier = "Cell"
 
 class homeVC: UICollectionViewController {
+    // refresher variable
+    var refresher : UIRefreshControl!
+    // how many pictures will be shown when first loaded - so maybe 8?
+    var page : Int = 8
+    
+    // arrays to hold server information
+    var uuidArray = [String]() //description/related information
+    var picArray = [PFFile]() //picture
+    
+    
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -25,14 +35,124 @@ class homeVC: UICollectionViewController {
         collectionView?.backgroundColor = .white
         // Register cell classes
         self.collectionView!.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
+        
+        // pull to refresh
+        refresher = UIRefreshControl()
+        refresher.addTarget(self, action: #selector(homeVC.refresh), for: UIControlEvents.valueChanged)
+        collectionView?.addSubview(refresher)
+
+        
+        // load posts func
+        loadPosts()
+        
+        // always vertical scroll
+        self.collectionView?.alwaysBounceVertical = true
+        // receive notification from editVC
+        NotificationCenter.default.addObserver(self, selector: #selector(homeVC.uploaded(_:)), name: NSNotification.Name(rawValue: "uploaded"), object: nil)
+        
 
         // Do any additional setup after loading the view.
     }
+    
+    //reloading function after receive notification
+    func uploaded(_ notification:Notification) {
+        loadPosts()
+        
+    }
+    
+    // load more while scrolling down
+    override func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        if scrollView.contentOffset.y >= scrollView.contentSize.height - self.view.frame.size.height {
+            loadMore()
+        }
+    }
+    
+    
+    // paging
+    func loadMore() {
+        
+        // if there is more objects
+        if page <= picArray.count {
+            
+            // increase page size
+            page = page + 12
+            
+            // load more posts
+            let query = PFQuery(className: "posts")
+            query.whereKey("username", equalTo: PFUser.current()!.username!)
+            query.limit = page
+            query.findObjectsInBackground(block: { (objects, error) -> Void in
+                if error == nil {
+                    
+                    // clean up
+                    self.uuidArray.removeAll(keepingCapacity: false)
+                    self.picArray.removeAll(keepingCapacity: false)
+                    
+                    // find related objects
+                    for object in objects! {
+                        self.uuidArray.append(object.value(forKey: "uuid") as! String)
+                        self.picArray.append(object.value(forKey: "pic") as! PFFile)
+                    }
+                    
+                    self.collectionView?.reloadData()
+                    
+                } else {
+                    print(error?.localizedDescription ?? String())
+                }
+            })
+            
+        }
+        
+    }
+
+    // refreshing func
+    func refresh() {
+        
+        // reload posts
+        loadPosts()
+        
+        // stop refresher animating
+        refresher.endRefreshing()
+    }
+    
+    // load posts func (for now just assume parse dashboard is working and there are classes with following columns: posts, username,
+    func loadPosts() {
+        
+        // request infomration from server
+        let query = PFQuery(className: "posts")
+        query.whereKey("username", equalTo: PFUser.current()!.username!) //find matched username - want all posts from current user
+        query.limit = page //limit loading - only showing 8 pics first
+        query.findObjectsInBackground (block: { (objects, error) -> Void in
+            if error == nil {
+                
+                // clean up
+                self.uuidArray.removeAll(keepingCapacity: false)
+                self.picArray.removeAll(keepingCapacity: false)
+                
+                // find objects related to our request
+                for object in objects! {
+                    
+                    // add found data to arrays (holders)
+                    self.uuidArray.append(object.value(forKey: "uuid") as! String) //uuid array will hold all values from uuid column in database of current user
+                    self.picArray.append(object.value(forKey: "pic") as! PFFile) //get picture
+                }
+                
+                self.collectionView?.reloadData() //now reload data
+                
+            } else {
+                print(error!.localizedDescription)
+            }
+        })
+        
+    }
+
+
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
     }
+    
     
     // header config
     override func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
@@ -64,32 +184,61 @@ class homeVC: UICollectionViewController {
                 header.post.text = "\(count)"
             }
         })
-        
-        
+        // count total followers - dont have to implement this part for now if we are not doing followers - but assume we have followers database
+        let followers = PFQuery(className: "follow")
+        followers.whereKey("following", equalTo: PFUser.current()!.username!)
+        followers.countObjectsInBackground (block: { (count, error) -> Void in //count followers
+            if error == nil {
+                header.followers.text = "\(count)" //no followers label that's why theres error
+            }
+        })
+
+        //assume there is a pick database maybe
         // STEP 3. Implement tap gestures
         // tap posts
         let postsTap = UITapGestureRecognizer(target: self, action: #selector(homeVC.postsTap))
         postsTap.numberOfTapsRequired = 1
-        header.posts.isUserInteractionEnabled = true
-        header.posts.addGestureRecognizer(postsTap)
-        
+        header.post.isUserInteractionEnabled = true
+        header.post.addGestureRecognizer(postsTap)
+        /*
         // tap followers
         let followersTap = UITapGestureRecognizer(target: self, action: #selector(homeVC.followersTap))
         followersTap.numberOfTapsRequired = 1
         header.followers.isUserInteractionEnabled = true
         header.followers.addGestureRecognizer(followersTap)
         
-        // tap followings
+        // tap followings if we are implementing followers/following - 
+         //but maybe for picks we can do picks they saved?
+         
         let followingsTap = UITapGestureRecognizer(target: self, action: #selector(homeVC.followingsTap))
         followingsTap.numberOfTapsRequired = 1
         header.followings.isUserInteractionEnabled = true
         header.followings.addGestureRecognizer(followingsTap)
-        
+        */
         return header
+    }
+    // taped posts label
+    func postsTap() {
+        if !picArray.isEmpty {
+            let index = IndexPath(item: 0, section: 0)
+            self.collectionView?.scrollToItem(at: index, at: UICollectionViewScrollPosition.top, animated: true)
+        }
+    }
+    /*// tapped followers label
+    func followersTap() {
+        
+        //user = PFUser.current()!.username!
+        //category = "followers"
+        
+        // make references to followersVC
+        let followers = self.storyboard?.instantiateViewController(withIdentifier: "followersVC") as! followersVC - make reference to stodyboard
+        
+        // present
+        self.navigationController?.pushViewController(followers, animated: true) present the referenced storyboard - present picks
     }
 
 
-    /*
+ */   /*
     // MARK: - Navigation
 
     // In a storyboard-based application, you will often want to do a little preparation before navigation
@@ -107,10 +256,47 @@ class homeVC: UICollectionViewController {
     //}
 
 
+    // cell numb
     override func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        // #warning Incomplete implementation, return the number of items
-        return 0
+        return picArray.count
     }
+    
+    
+    // cell size
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAtIndexPath indexPath: IndexPath) -> CGSize {
+        let size = CGSize(width: self.view.frame.size.width / 2, height: self.view.frame.size.width / 2)
+        return size
+    }
+    
+    // cell config
+    override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        
+        // define cell
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "cell", for: indexPath) as! PictureCell //access variable from picturecell
+        
+        // get picture from the picArray
+        picArray[indexPath.row].getDataInBackground { (data, error) -> Void in
+            if error == nil {
+                cell.picimg.image = UIImage(data: data!) //receive the data
+            }
+        }
+        
+        return cell
+    }
+    
+    // go to post
+    override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        
+        // send post uuid to "postuuid" variable
+        postuuid.append(uuidArray[indexPath.row])
+        
+        // navigate to post view controller
+        let post = self.storyboard?.instantiateViewController(withIdentifier: "postVC") as! postVC
+        self.navigationController?.pushViewController(post, animated: true)
+    }
+
+
+
 /*
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: reuseIdentifier, for: indexPath)
