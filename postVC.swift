@@ -135,9 +135,54 @@ class postVC: UITableViewController {
         countLikes.countObjectsInBackground { (count, error) -> Void in
             cell.countlike.text = "\(count)"
         }
+        //assume have a new class downvote
+        //make a different one for downvote
+        let down = PFQuery(className: "downvote")
+        down.whereKey("by", equalTo: PFUser.current()!.username!)
+        down.whereKey("to", equalTo: cell.uuid.text!)
+        down.countObjectsInBackground { (count, error) -> Void in
+            // if no any downvote are found, else found downvote
+            if count == 0 {
+                cell.likebtn.setTitle("nodown", for: UIControlState())
+                cell.likebtn.setBackgroundImage(UIImage(named: "nodown.png"), for: UIControlState())
+            } else {
+                cell.likebtn.setTitle("down", for: UIControlState())
+                cell.likebtn.setBackgroundImage(UIImage(named: "down.png"), for: UIControlState())
+            }
+        }
+        
+        // count total likes of shown post
+        let countLikes2 = PFQuery(className: "downvote")
+        countLikes2.whereKey("to", equalTo: cell.uuid.text!)
+        countLikes2.countObjectsInBackground { (count, error) -> Void in
+            cell.countdislike.text = "\(count)"
+        }
 
+        return cell
     }
 
+    
+    // clicked username button
+    @IBAction func usernameBtn_click(_ sender: AnyObject) {
+        
+        // call index of button
+        let i = sender.layer.value(forKey: "index") as! IndexPath
+        
+        // call cell to call further cell data
+        let cell = tableView.cellForRow(at: i) as! postCell
+        
+        // if user tapped on himself go home, else go guest
+        if cell.usrname.titleLabel?.text == PFUser.current()?.username {
+            let home = self.storyboard?.instantiateViewController(withIdentifier: "homeVC") as! homeVC
+            self.navigationController?.pushViewController(home, animated: true)
+        } else {
+            guestname.append(cell.usrname.titleLabel!.text!)
+            let guest = self.storyboard?.instantiateViewController(withIdentifier: "guestVC") as! guestVC
+            self.navigationController?.pushViewController(guest, animated: true)
+        }
+        
+    }
+    
     
 
     override func didReceiveMemoryWarning() {

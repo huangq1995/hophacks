@@ -50,7 +50,7 @@ class homeVC: UICollectionViewController {
         // receive notification from editVC
         NotificationCenter.default.addObserver(self, selector: #selector(homeVC.uploaded(_:)), name: NSNotification.Name(rawValue: "uploaded"), object: nil)
         
-
+        
         // Do any additional setup after loading the view.
     }
     
@@ -201,11 +201,11 @@ class homeVC: UICollectionViewController {
         header.post.isUserInteractionEnabled = true
         header.post.addGestureRecognizer(postsTap)
         /*
-        // tap followers
-        let followersTap = UITapGestureRecognizer(target: self, action: #selector(homeVC.followersTap))
-        followersTap.numberOfTapsRequired = 1
-        header.followers.isUserInteractionEnabled = true
-        header.followers.addGestureRecognizer(followersTap)
+        // tap friend if we have one
+        let friendTap = UITapGestureRecognizer(target: self, action: #selector(homeVC.friendTap))
+        friendTap.numberOfTapsRequired = 1
+        header.friend.isUserInteractionEnabled = true
+        header.friend.addGestureRecognizer(friendTap)
         
         // tap followings if we are implementing followers/following - 
          //but maybe for picks we can do picks they saved?
@@ -224,17 +224,17 @@ class homeVC: UICollectionViewController {
             self.collectionView?.scrollToItem(at: index, at: UICollectionViewScrollPosition.top, animated: true)
         }
     }
-    /*// tapped followers label
-    func followersTap() {
+    /*// tapped friend label if we make one
+    func friendTap() {
         
         //user = PFUser.current()!.username!
-        //category = "followers"
+        //category = "friend"
         
-        // make references to followersVC
-        let followers = self.storyboard?.instantiateViewController(withIdentifier: "followersVC") as! followersVC - make reference to stodyboard
+        // make references to friendVC
+        let followers = self.storyboard?.instantiateViewController(withIdentifier: "friendVC") as! friendVC - make reference to stodyboard
         
         // present
-        self.navigationController?.pushViewController(followers, animated: true) present the referenced storyboard - present picks
+        self.navigationController?.pushViewController(friends, animated: true) present the referenced storyboard - present picks
     }
 
 
